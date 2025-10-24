@@ -24,6 +24,17 @@ Ce rôle permet d’automatiser la configuration initiale d’un Raspberry Pi 
 
 ## Astuces et bonnes pratiques
 
+### Utilisateurs et Vault
+
+Ce rôle s’appuie sur :
+
+- Une variable décrivant les utilisateurs à créer (voir la documentation du dépôt ci-dessous)
+- Une variable de type vault contenant les mots de passe chiffrés
+
+La structure et l’utilisation de ces variables sont détaillées dans le dépôt GitHub :
+
+👉 [themaire/raspberry_pi_configurator](https://github.com/themaire/raspberry_pi_configurator)
+
 ### 1. Préparation de la carte SD
 
 Avant de flasher, définissez un mot de passe personnalisé pour le Pi, configurez le Wi-Fi (si besoin) et activez SSH via Raspberry Pi Imager.
@@ -140,6 +151,17 @@ This role automates the initial configuration of a Raspberry Pi: package install
 - SSH key for the target user
 
 ## Tips and Best Practices
+
+### Users and Vault
+
+This role relies on:
+
+- A variable describing the users to create (see the documentation in the repository below)
+- A vault variable containing encrypted passwords
+
+The structure and usage of these variables are explained in the GitHub repository:
+
+👉 [themaire/raspberry_pi_configurator](https://github.com/themaire/raspberry_pi_configurator)
 
 ### 1. SD Card Preparation
 

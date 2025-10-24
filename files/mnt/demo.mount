@@ -1,0 +1,13 @@
+[Unit]
+Description=SMB mount
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What=//192.168.x.IP/SHARE
+Where=/mnt/MOUNT
+Type=cifs
+Options=username=nico,password=PASSWORD,uid=USER,gid=USER,file_mode=0770,dir_mode=0770
+
+[Install]
+WantedBy=multi-user.target

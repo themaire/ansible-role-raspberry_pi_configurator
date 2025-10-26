@@ -75,7 +75,7 @@
     mode: '0644'
     remote_src: true
 
-- name: Change RAM size of log folder to MB {{ log2ram_size }}
+- name: Change RAM size of log folder to MB {{ raspberry_pi_log2ram_size }}
   ansible.builtin.lineinfile:
     path: /etc/log2ram.conf
     regexp: '^SIZE='

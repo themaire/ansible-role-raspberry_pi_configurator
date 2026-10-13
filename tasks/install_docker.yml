@@ -51,15 +51,11 @@
     state: present
   register: docker_repository
 
-- name: Update apt cache
-  become: true
-  ansible.builtin.apt:
-    update_cache: true
-  when: docker_repository.changed
-
 - name: Install Docker packages
   become: true
   ansible.builtin.apt:
+    # Cache apt rafraîchi seulement si le dépôt vient d'être ajouté ou modifié.
+    update_cache: "{{ docker_repository.changed }}"
     name:
       - docker-ce
       - docker-ce-cli

@@ -15,12 +15,20 @@
     name: "{{ raspberry_pi_packages }}"
     state: present
 
-- name: Update bootloader if Pi 4 or newer
-  ansible.builtin.shell: rpi-eeprom-update
+# rpi-eeprom-update sort avec le code 1 quand une mise à jour est disponible (EXIT_UPDATE_REQUIRED) :
+# ce n'est pas une erreur, c'est le signal pour l'appliquer.
+- name: Check bootloader update if Pi 4 or newer
+  ansible.builtin.command:
+    cmd: rpi-eeprom-update
+  register: raspberry_pi_eeprom_check
+  changed_when: false
+  failed_when: raspberry_pi_eeprom_check.rc not in [0, 1]
   become: true
   when: pi_specs.nick is defined and pi_specs.nick | int >= 4
 
-- name: Apply bootloader update if Pi 4 or newer
-  ansible.builtin.shell: rpi-eeprom-update -a
+- name: Apply bootloader update if Pi 4 or newer (effective after reboot)
+  ansible.builtin.command:
+    cmd: rpi-eeprom-update -a
+  changed_when: true
   become: true
-  when: pi_specs.nick is defined and pi_specs.nick | int >= 4
+  when: raspberry_pi_eeprom_check.rc is defined and raspberry_pi_eeprom_check.rc == 1

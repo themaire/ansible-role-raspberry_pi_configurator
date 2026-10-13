@@ -6,6 +6,7 @@
     regexp: '^dtparam=audio'
     line: 'dtparam=audio=off'
     state: present
+  notify: Reboot
 
 # Enable I2S for DAC
 - name: Enable I2S for DAC
@@ -14,6 +15,7 @@
     regexp: '^dtparam=i2s'
     line: 'dtparam=i2s=on'
     state: present
+  notify: Reboot
 
 # Add overlay for HifiBerry DAC
 - name: Configure HifiBerry DAC overlay
@@ -22,6 +24,7 @@
     regexp: '^dtoverlay=hifiberry-dac'
     line: 'dtoverlay=hifiberry-dac'
     state: present
+  notify: Reboot
 
 # Disable HDMI (no video/audio output)
 - name: Disable HDMI (no video/audio output)
@@ -30,6 +33,7 @@
     regexp: '^hdmi_force_hotplug'
     line: 'hdmi_force_hotplug=0'
     state: present
+  notify: Reboot
 
 # Disable automatic display detection
 - name: Disable automatic display detection
@@ -38,11 +42,11 @@
     regexp: '^display_auto_detect'
     line: 'display_auto_detect=0'
     state: present
+  notify: Reboot
 
-
-- name: Reboot Raspberry Pi to apply changes
-  ansible.builtin.reboot:
-    reboot_timeout: 600
+# Redémarrage uniquement si config.txt a changé (avant : à chaque passage du playbook).
+- name: Reboot Raspberry Pi now if config.txt changed
+  ansible.builtin.meta: flush_handlers
 
 - name: Install required packages for MPD and ALSA
   ansible.builtin.apt:
@@ -54,13 +58,14 @@
     state: present
   environment:
     DEBIAN_FRONTEND: noninteractive
-  
-- name: Check if /etc/asound.conf.bak exists
+
+- name: Check if /etc/asound.conf exists
   ansible.builtin.stat:
-    file: /etc/asound.conf
+    path: /etc/asound.conf
   register: asound_conf_bak
 
-- name: Backup existing ALSA configuration file
+# force: false : la sauvegarde garde l'original et n'est jamais écrasée par la version modifiée.
+- name: Backup original ALSA configuration file
   ansible.builtin.copy:
     src: /etc/asound.conf
     dest: /etc/asound.conf.bak
@@ -68,6 +73,7 @@
     owner: root
     group: root
     remote_src: true
+    force: false
   when: asound_conf_bak.stat.exists
 
 - name: Configure ALSA for HifiBerry DAC
@@ -102,13 +108,14 @@
     mode: '0644'
     owner: root
     group: root
-  
-- name: Check if /etc/mpd.conf.bak exists
+  notify: Restart MPD
+
+- name: Check if /etc/mpd.conf exists
   ansible.builtin.stat:
-    file: /etc/mpd.conf
+    path: /etc/mpd.conf
   register: mpd_conf_bak
 
-- name: Backup existing MPD configuration file
+- name: Backup original MPD configuration file
   ansible.builtin.copy:
     src: /etc/mpd.conf
     dest: /etc/mpd.conf.bak
@@ -116,6 +123,7 @@
     owner: root
     group: root
     remote_src: true
+    force: false
   when: mpd_conf_bak.stat.exists
 
 - name: Configure MPD for HifiBerry DAC
@@ -132,25 +140,27 @@
         auto_format "no"
         enabled "yes"
       }
+  notify: Restart MPD
 
-- name: Restart MPD service
-  ansible.builtin.service:
-    name: mpd
-    state: restarted
+- name: Restart MPD now if its configuration changed
+  ansible.builtin.meta: flush_handlers
 
 - name: Verify ALSA sound devices
   ansible.builtin.command:
     cmd: aplay -l
   register: aplay_output
+  changed_when: false
 
-- debug:
+- name: Show ALSA sound devices
+  ansible.builtin.debug:
     var: aplay_output.stdout
 
 - name: Verify MPD status and outputs
   ansible.builtin.command:
     cmd: mpc outputs
   register: mpc_outputs
+  changed_when: false
 
-- debug:
+- name: Show MPD outputs
+  ansible.builtin.debug:
     var: mpc_outputs.stdout
-

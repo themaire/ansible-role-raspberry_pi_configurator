@@ -1,5 +1,7 @@
 ---
-- hosts: localhost
+- name: Test du rôle raspberry_pi_configurator
+  hosts: localhost
   remote_user: root
   roles:
-    - raspberry-pi
+    # Le rôle testé est le dossier parent : un chemin est ici le plus simple.
+    - role: "{{ playbook_dir }}/.." # noqa: role-name[path]

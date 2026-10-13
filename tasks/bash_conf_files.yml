@@ -1,89 +1,29 @@
 ---
-
-- name: "Copy original bash configuration files to users' home directories"
+# Le module copy compare lui-même les sommes de contrôle : il ne copie que si le fichier diffère.
+# (L'ancienne version calculait ces sommes à la main avec stat, mais stat lisait files/... sur le Pi
+# au lieu de la machine Ansible, et relisait des variables jamais enregistrées : rien n'était copié.)
+- name: "Copy .bash_aliases to admin users' home directories"
   ansible.builtin.copy:
     src: files/bash_aliases
     dest: "/home/{{ bash_user.name }}/.bash_aliases"
+    owner: "{{ bash_user.name }}"
+    group: "{{ bash_user.name }}"
     mode: '0644'
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: bash_user
-  when: raspberry_pi_source_bash_aliases.stat.checksum is defined and raspberry_pi_source_bash_aliases.stat.checksum != dest_bash_aliases_checksums[bash_user.name]
+    label: "{{ bash_user.name }}"
   become: true
-  no_log: true
 
-- name: "Get checksum of source .bash_aliases"
-  ansible.builtin.stat:
-    path: files/bash_aliases
-    checksum_algorithm: sha1
-  register: raspberry_pi_source_bash_aliases
-
-- name: "Get checksum of destination .bash_aliases"
-  ansible.builtin.stat:
-    path: "/home/{{ bash_user.name }}/.bash_aliases"
-    checksum_algorithm: sha1
-  register: raspberry_pi_dest_bash_aliases
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: bash_user
-  become: true
-  no_log: true
-
-- name: "Set fact for destination .bash_aliases checksums"
-  ansible.builtin.set_fact:
-    dest_bash_aliases_checksums: "{{ raspberry_pi_dest_bash_aliases_checksums | default({}) | combine({bash_user.name: (dest_bash_aliases.stat.checksum | default(''))}) }}"
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: bash_user
-  become: true
-  no_log: true
-
-- name: "Copy .bash_aliases if different"
-  ansible.builtin.copy:
-    src: files/bash_aliases
-    dest: "/home/{{ bash_user.name }}/.bash_aliases"
-    mode: '0644'
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: bash_user
-  when: raspberry_pi_source_bash_aliases.stat.checksum is defined and raspberry_pi_source_bash_aliases.stat.checksum != dest_bash_aliases_checksums[bash_user.name]
-  become: true
-  no_log: true
-
-- name: "Get checksum of source .bashrc"
-  ansible.builtin.stat:
-    path: files/bashrc
-    checksum_algorithm: sha1
-  register: raspberry_pi_source_bashrc
-
-- name: "Get checksum of destination .bashrc"
-  ansible.builtin.stat:
-    path: "/home/{{ bash_user.name }}/.bashrc"
-    checksum_algorithm: sha1
-  register: dest_bashrc
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: bash_user
-  become: true
-  no_log: true
-
-- name: "Set fact for destination .bashrc checksums"
-  ansible.builtin.set_fact:
-    dest_bashrc_checksums: "{{ dest_bashrc_checksums | default({}) | combine({bash_user.name: (dest_bashrc.stat.checksum | default(''))}) }}"
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: bash_user
-  become: true
-  no_log: true
-
-- name: "Copy .bashrc if different"
+- name: "Copy .bashrc to admin users' home directories"
   ansible.builtin.copy:
     src: files/bashrc
     dest: "/home/{{ bash_user.name }}/.bashrc"
+    owner: "{{ bash_user.name }}"
+    group: "{{ bash_user.name }}"
     mode: '0644'
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: bash_user
-  when: source_bashrc.stat.checksum is defined and source_bashrc.stat.checksum != dest_bashrc_checksums[bash_user.name]
+    label: "{{ bash_user.name }}"
   become: true
-  no_log: true

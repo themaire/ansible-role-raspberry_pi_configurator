@@ -12,6 +12,7 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 - name: Download Oh My Zsh install script for each user
   ansible.builtin.get_url:
@@ -22,6 +23,7 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 - name: Installer Oh My Zsh pour chaque utilisateur (mode non interactif, HOME forcé)
   ansible.builtin.command:
@@ -33,6 +35,7 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 - name: Corriger les droits sur .oh-my-zsh
   ansible.builtin.file:
@@ -44,30 +47,22 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
-- name: Check if fzf repository is already cloned for each user
-  ansible.builtin.stat:
-    path: "/home/{{ zsh_user.name }}/.fzf/.git"
-  register: fzf_repo_stat
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: zsh_user
-
-- name : See the fzf_repo_stat variable
-  ansible.builtin.debug:
-    var: fzf_repo_stat
-
+# Le module git est idempotent (update: false : jamais de mise à jour d'un dépôt déjà cloné).
+# Avant, un stat préalable lisait results[0] : le premier utilisateur décidait pour tous.
 - name: Clone fzf repository for each user
   ansible.builtin.git:
     repo: "{{ raspberry_pi_fzf_repo_url }}"
     dest: "/home/{{ zsh_user.name }}/.fzf"
+    version: master
     depth: 1
     update: false
   become: true
-  when: not fzf_repo_stat.results[0].stat.exists
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 - name: Run fzf install script for each user
   ansible.builtin.command:
@@ -78,44 +73,31 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
-- name: Check if zsh-syntax-highlighting plugin is already cloned for each user
-  ansible.builtin.stat:
-    path: "{{ raspberry_pi_zsh_custom_dir }}/zsh-syntax-highlighting/.git"
-  register: zsh_syntax_highlighting_stat
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: zsh_user
-
-- name: Clone or update zsh-syntax-highlighting plugin for each user
+- name: Clone zsh-syntax-highlighting plugin for each user
   ansible.builtin.git:
     repo: "{{ raspberry_pi_zsh_syntax_highlighting_url }}"
     dest: "{{ raspberry_pi_zsh_custom_dir }}/zsh-syntax-highlighting"
-    update: true
+    version: master
+    update: false
   become: true
-  when: not zsh_syntax_highlighting_stat.results[0].stat.exists
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
-
-- name: Check if zsh-autosuggestions plugin is already cloned for each user
-  ansible.builtin.stat:
-    path: "{{ raspberry_pi_zsh_custom_dir }}/zsh-autosuggestions/.git"
-  register: zsh_autosuggestions_stat
-  loop: "{{ users_admin }}"
-  loop_control:
-    loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 - name: Clone zsh-autosuggestions plugin for each user
   ansible.builtin.git:
     repo: "{{ raspberry_pi_zsh_autosuggestions_url }}"
     dest: "{{ raspberry_pi_zsh_custom_dir }}/zsh-autosuggestions"
+    version: master
     update: false
   become: true
-  when: not zsh_autosuggestions_stat.results[0].stat.exists
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 # - name: Configure .zshrc with plugins and settings for each user
 #   ansible.builtin.lineinfile:
@@ -159,10 +141,15 @@
     mode: '0755'
   become: true
 
-# Ajouter la commande pour créer un fichier d'alias global dans /etc/zsh/zshrc
+# Charger le fichier d'alias global depuis /etc/zsh/zshrc (une seule fois, et seulement s'il existe).
+# Avant : « command: echo ... | sudo tee -a » — sans shell, le pipe n'était qu'un argument d'echo,
+# la ligne n'était jamais ajoutée (et avec un shell, elle l'aurait été à chaque passage).
 - name: Add global aliases to /etc/zsh/zshrc
-  ansible.builtin.command:
-    cmd: "echo 'source /usr/local/share/zsh_custom/global_aliases.zsh' | sudo tee -a /etc/zsh/zshrc"
+  ansible.builtin.lineinfile:
+    path: /etc/zsh/zshrc
+    line: '[ -f /usr/local/share/zsh_custom/global_aliases.zsh ] && source /usr/local/share/zsh_custom/global_aliases.zsh'
+    create: true
+    mode: '0644'
   become: true
 
 - name: Copy the zshrc config file
@@ -175,6 +162,7 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"
 
 - name: Change ownership and permissions of .zshrc for each user
   ansible.builtin.file:
@@ -185,3 +173,4 @@
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: zsh_user
+    label: "{{ zsh_user.name }}"

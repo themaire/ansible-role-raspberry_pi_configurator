@@ -22,9 +22,56 @@
   ansible.builtin.systemd:
     name: "{{ item }}"
     state: restarted
-  with_items: "{{ samba_services }}"
+  loop: "{{ raspberry_pi_samba_services }}"
 
 - name: Restart log2ram
   ansible.builtin.systemd:
     name: log2ram
     state: restarted
+
+# Reconstruction du swap après changement de taille (bigger_swap.yml), dans cet ordre.
+- name: Stop dphys-swapfile service
+  ansible.builtin.service:
+    name: dphys-swapfile
+    state: stopped
+  listen: Rebuild swap
+
+- name: Disable swap
+  ansible.builtin.command:
+    cmd: dphys-swapfile swapoff
+  changed_when: true
+  listen: Rebuild swap
+
+- name: Recreate the swap file
+  ansible.builtin.command:
+    cmd: dphys-swapfile setup
+  changed_when: true
+  listen: Rebuild swap
+
+- name: Enable swap
+  ansible.builtin.command:
+    cmd: dphys-swapfile swapon
+  changed_when: true
+  listen: Rebuild swap
+
+- name: Start dphys-swapfile service
+  ansible.builtin.service:
+    name: dphys-swapfile
+    state: started
+  listen: Rebuild swap
+
+- name: Restart SABnzbd
+  ansible.builtin.systemd:
+    name: sabnzbdplus
+    state: restarted
+    daemon_reload: true
+
+- name: Restart MPD
+  ansible.builtin.service:
+    name: mpd
+    state: restarted
+
+- name: Apply hdparm spindown
+  ansible.builtin.command:
+    cmd: "hdparm -S {{ raspberry_pi_sda_spindown }} /dev/sda"
+  changed_when: true

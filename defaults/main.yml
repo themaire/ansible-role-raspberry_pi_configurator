@@ -41,9 +41,9 @@ raspberry_pi_tasks:
     active: "{{ do_optional | default(false) }}"
     tasks:
       - name: install_docker.yml
-        # If the Raspberry Pi have ARMv6 CPU or higher, we can install Docker
-        active: "{{ raspberry_pi_specs.processor is defined and 'ARMv6-compatible processor rev 7 (v6l)' not in raspberry_pi_specs.processor }}"
-      - name: wordpress_docker-compose.yml
+        # Docker n'est pas disponible pour les processeurs ARMv6 (Pi 1, Zero, Zero W)
+        active: "{{ ansible_facts.architecture | default('') != 'armv6l' }}"
+      - name: wordpress_compose.yml
         active: false
       - name: install_sabnzbd.yml
         active: false
@@ -151,7 +151,7 @@ raspberry_pi_oh_my_zsh_url: "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/m
 raspberry_pi_fzf_repo_url: "https://github.com/junegunn/fzf.git"
 raspberry_pi_zsh_syntax_highlighting_url: "https://github.com/zsh-users/zsh-syntax-highlighting.git"
 raspberry_pi_zsh_autosuggestions_url: "https://github.com/zsh-users/zsh-autosuggestions.git"
-raspberry_pi_zsh_custom_dir: "/home/{{ zsh_user }}/.zsh"
+raspberry_pi_zsh_custom_dir: "/home/{{ zsh_user.name }}/.zsh"
 
 # HDPARAM configuration (parameter for the eventualy external drive)
 raspberry_pi_sda_spindown: 120

@@ -8,20 +8,24 @@
 - name: "Create Admin User Accounts"
   ansible.builtin.user:
     name: "{{ admin_user.name }}"
-    password: "{{ admin_user.password | password_hash('sha512') }}"
+    # Sel fixe par utilisateur et par machine : sans lui, password_hash tire un sel aléatoire
+    # et le mot de passe est réécrit (changed) à chaque passage.
+    password: "{{ admin_user.password | password_hash('sha512', 65534 | random(seed=inventory_hostname ~ admin_user.name) | string) }}"
     groups: "admin"
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: admin_user
-  no_log: false
+    label: "{{ admin_user.name }}"
+  no_log: true # l'élément de boucle contient le mot de passe en clair
 
 - name: "Add Authorized Keys"
-  ansible.builtin.authorized_key:
+  ansible.posix.authorized_key:
     user: "{{ admin_user.name }}"
     key: "{{ lookup('file', 'files/' + admin_user.name + '.key.pub') }}"
   loop: "{{ users_admin }}"
   loop_control:
     loop_var: admin_user
+    label: "{{ admin_user.name }}"
 #    - "{{ users_no_admin }}"
   no_log: true
 
@@ -31,6 +35,7 @@
     state: "present"
     regexp: "^%sudo"
     line: "%admin ALL=(ALL) NOPASSWD: ALL"
+    validate: /usr/sbin/visudo -cf %s # un sudoers invalide bloquerait sudo sur le Pi
   no_log: true
 
 ## Mettre plus tard dans un fichier de gestionnaire (handlers)

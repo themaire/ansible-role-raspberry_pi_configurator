@@ -4,7 +4,7 @@
 
 # armv7l : Utilisé pour les premières versions du Raspberry Pi 2 Model B V1.1.
 
-# armhf : Utilisé pour les architectures ARM 32 bits avec support matériel pour les opérations en virgule flottante. 
+# armhf : Utilisé pour les architectures ARM 32 bits avec support matériel pour les opérations en virgule flottante.
 # Les Raspberry Pi 2 (versions récentes), 3 et 4 utilisent cette architecture.
 
 # arm64 : Utilisé pour les architectures ARM 64 bits.

@@ -1,4 +1,6 @@
 galaxy_info:
+  role_name: raspberry_pi_configurator
+  namespace: themaire
   author: Nicolas ELIE
   description: Configuring from scratch a Raspberry Pi with Raspbian OS.
   license: MIT

@@ -1,15 +1,16 @@
 ---
+# Tâches idempotentes sans condition : un passage interrompu se rattrape au suivant
+# (avant, elles ne s'exécutaient que si la locale venait d'être générée).
 - name: Setup locale
-  locale_gen:
+  community.general.locale_gen:
     name: '{{ raspberry_pi_locale }}'
     state: present
-  register: setup_locale_result
 
 - name: Remove english locale
-  locale_gen:
+  community.general.locale_gen:
     name: en_GB.UTF-8
     state: absent
-  when: setup_locale_result.changed
+  when: raspberry_pi_locale != 'en_GB.UTF-8'
 
 - name: Ensure locale environment variables are set
   ansible.builtin.copy:
@@ -21,27 +22,25 @@
       LC_COLLATE={{ raspberry_pi_locale }}
       LC_ALL={{ raspberry_pi_locale }}
     mode: '0644'
-  register: locale_copy_result
 
 - name: Install French man pages
   ansible.builtin.apt:
     name: manpages-fr
     state: present
   become: true
-  when: locale_copy_result.changed
+  when: raspberry_pi_locale is match('fr_')
 
-- name: Install French keyboard keymap
+- name: Install keyboard keymaps
   ansible.builtin.apt:
     name: console-data
     state: present
   become: true
-  when: setup_locale_result.changed
 
 - name: Set persistent keyboard layout
   ansible.builtin.lineinfile:
     path: /etc/default/keyboard
     regexp: '^XKBLAYOUT='
     line: "XKBLAYOUT={{ raspberry_pi_keyboard }}"
-    create: yes
+    create: true
+    mode: '0644'
   become: true
-  when: setup_locale_result.changed

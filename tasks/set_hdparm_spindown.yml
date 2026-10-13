@@ -1,23 +1,18 @@
+---
 - name: Installer hdparm
-  apt:
+  ansible.builtin.apt:
     name: hdparm
     state: present
-    update_cache: yes
+    update_cache: true
 
+# Le handler applique tout de suite la même valeur (hdparm -S {{ raspberry_pi_sda_spindown }}) ;
+# avant, la commande appliquait 120 en dur à chaque passage, quelle que soit la variable.
 - name: Configurer le fichier /etc/hdparm.conf pour /dev/sda
-  blockinfile:
+  ansible.builtin.blockinfile:
     path: /etc/hdparm.conf
     block: |
       /dev/sda {
           spindown_time = {{ raspberry_pi_sda_spindown }}
       }
     marker: "# {mark} ANSIBLE: hdparm config for /dev/sda"
-
-- name: Appliquer la configuration immédiatement
-  command: hdparm -S 120 /dev/sda
-  register: hdparm_output
-  changed_when: "'setting standby to' in hdparm_output.stdout"
-
-- name: Afficher le résultat de hdparm
-  debug:
-    var: hdparm_output.stdout
+  notify: Apply hdparm spindown

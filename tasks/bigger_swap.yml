@@ -5,44 +5,17 @@
     regexp: '^CONF_SWAPSIZE='
     line: 'CONF_SWAPSIZE={{ raspberry_pi_swap_size }}'
   become: true
-  register: swapfile_config
+  notify: Rebuild swap
 
-- name: Stop dphys-swapfile service
-  ansible.builtin.service:
-    name: dphys-swapfile
-    state: stopped
-  become: true
-  when: swapfile_config.changed
-
-- name: Disable swap
-  ansible.builtin.command:
-    cmd: dphys-swapfile swapoff
-  become: true
-  when: swapfile_config.changed
-
-- name: Recreate the swap file
-  ansible.builtin.command:
-    cmd: dphys-swapfile setup
-  become: true
-  when: swapfile_config.changed
-
-- name: Enable swap
-  ansible.builtin.command:
-    cmd: dphys-swapfile swapon
-  become: true
-  when: swapfile_config.changed
-
-- name: Start dphys-swapfile service
-  ansible.builtin.service:
-    name: dphys-swapfile
-    state: started
-  become: true
-  when: swapfile_config.changed
+# Reconstruit le swap tout de suite (handlers « Rebuild swap ») pour que la vérification ci-dessous le voie.
+- name: Apply the new swap size now
+  ansible.builtin.meta: flush_handlers
 
 - name: Verify the swap configuration
   ansible.builtin.shell: |
     swapon --show && free -h
   register: swap_check_output
+  changed_when: false
 
 - name: Show swap verification output
   ansible.builtin.debug:

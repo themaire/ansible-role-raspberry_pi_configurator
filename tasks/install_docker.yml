@@ -1,55 +1,61 @@
 ---
+# Installation de Docker depuis le dépôt apt officiel (https://docs.docker.com/engine/install/debian/).
+# - Dépôt au format deb822 avec Signed-By (apt_key / apt-key sont obsolètes, absents de Debian 13).
+# - Dépôt choisi selon l'architecture des paquets (dpkg) et non du noyau : un Pi 4/5 avec un noyau
+#   64 bits peut tourner sur un Raspberry Pi OS 32 bits, qui a besoin du dépôt raspbian armhf.
+# - Idempotent : aucun redémarrage de Docker (ni de ses conteneurs) quand rien n'a changé.
+
 - name: Install necessary packages
   become: true
   ansible.builtin.apt:
     name:
-      - apt-transport-https
       - ca-certificates
-      - curl
-      - gnupg
-      - lsb-release
+      - python3-debian # requis par le module deb822_repository
     state: present
 
-- name: Add Docker GPG key
+- name: Get the packages architecture (dpkg)
+  ansible.builtin.command:
+    cmd: dpkg --print-architecture
+  register: docker_dpkg_arch
+  changed_when: false
+  check_mode: false
+
+# arm64 (Pi 3/4/5 en Raspberry Pi OS 64 bits) -> dépôt debian ; armhf (Raspberry Pi OS 32 bits) -> dépôt raspbian
+- name: Choose the Docker repository
+  ansible.builtin.set_fact:
+    docker_apt_arch: "{{ docker_dpkg_arch.stdout | trim }}"
+    docker_apt_distro: "{{ 'raspbian' if (docker_dpkg_arch.stdout | trim) == 'armhf' else 'debian' }}"
+
+# Anciennes versions de cette tâche : dépôt déclaré sans signed-by (apt_repository + apt_key). Le laisser
+# à côté du nouveau ferait échouer apt update (« Conflicting values set for option Signed-By »).
+- name: Remove Docker repositories declared by previous versions of this role
   become: true
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/debian/gpg
-    state: present
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/{{ item }}"
+    state: absent
+  loop:
+    - download_docker_com_linux_debian.list
+    - download_docker_com_linux_raspbian.list
 
-- name: Debug read the pi_specs variable (from Raspberry Pi specs)
-  ansible.builtin.debug:
-    msg: "Pi specs: {{ pi_specs }}"
-
-- name: Add Docker repository for arm64
+# deb822_repository télécharge la clé lui-même (dans /etc/apt/keyrings) et n'a besoin ni de gpg ni d'apt-key.
+- name: Add Docker repository
   become: true
-  ansible.builtin.apt_repository:
-    repo: "deb [arch=arm64] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: "https://download.docker.com/linux/{{ docker_apt_distro }}"
+    suites: "{{ ansible_distribution_release }}"
+    components: stable
+    architectures: "{{ docker_apt_arch }}"
+    signed_by: "https://download.docker.com/linux/{{ docker_apt_distro }}/gpg"
     state: present
-  # when: ansible_architecture == 'aarch64' and pi_model.nick == '5'
-  # Cas du pi 4 et 5. On regarde nick tout simplement
-  when: pi_specs.nick | int == 5 or pi_specs.nick | int == 4
-
-- name: Add Docker repository for armhf
-  become: true
-  ansible.builtin.apt_repository:
-    repo: "deb [arch=armhf] https://download.docker.com/linux/raspbian {{ ansible_distribution_release }} stable"
-    state: present
-  # when: ansible_architecture == 'armv7l'
-  # Cas du pi 2 et 3. On regarde nick tout simplement. A VERIFIER POUR DE VRAI
-  when: pi_specs.nick == '3+' or pi_specs.nick == '3A+' or pi_specs.nick == '3' or pi_specs.nick == '2' or pi_specs.nick == '1' or pi_specs.nick == '0'
-
-- name: Add Docker repository for armv6l
-  become: true
-  ansible.builtin.apt_repository:
-    repo: "deb [arch=armhf] https://download.docker.com/linux/raspbian {{ ansible_distribution_release }} stable"
-    state: present
-  # when: ansible_architecture == 'armv6l'
-  when: pi_specs.nick == 'zero' or pi_specs.nick == 'zero W'
+  register: docker_repository
 
 - name: Update apt cache
   become: true
   ansible.builtin.apt:
     update_cache: true
+  when: docker_repository.changed
 
 - name: Install Docker packages
   become: true
@@ -62,28 +68,15 @@
       - docker-compose-plugin
     state: present
 
-- name: Ensure Docker service is started and enabled
+- name: Ensure Docker service is started and enabled on boot
   become: true
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: docker
     state: started
     enabled: true
 
-- name: Add user to docker group
-  ansible.builtin.user:
-    name: "{{ item.name }}"
-    groups: docker
-    append: true
-  with_items:
-    - "{{ users_admin }}"
-
-- name: Create Docker group if it does not exist
-  become: true
-  ansible.builtin.group:
-    name: docker
-    state: present
-
-- name: Add users to Docker group
+# Le groupe docker est créé par le paquet docker-ce. Effectif à la prochaine connexion de l'utilisateur.
+- name: Add admin users to the docker group
   become: true
   ansible.builtin.user:
     name: "{{ item.name }}"
@@ -91,17 +84,4 @@
     append: true
   loop: "{{ users_admin }}"
   loop_control:
-    loop_var: item
-
-- name: Enable Docker service to start on boot
-  become: true
-  ansible.builtin.systemd:
-    name: docker
-    enabled: true
-    state: started
-
-- name: Restart Docker service
-  become: true
-  ansible.builtin.systemd:
-    name: docker
-    state: restarted
+    label: "{{ item.name }}"
